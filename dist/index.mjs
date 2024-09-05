@@ -153,20 +153,79 @@ var drawRoundedRect = (context, x, y, width, height, borderRadius) => {
     context.translate(-x, -y);
   }
 };
-var drawGrid = (context, x, y, width, height, gridColor) => {
+function drawRoundedRectWithText(context, width, height, text, xPosition, yPosition, color) {
+  const radius = 10;
+  context.beginPath();
+  context.moveTo(xPosition + radius, yPosition);
+  context.lineTo(xPosition + width - radius, yPosition);
+  context.arcTo(xPosition + width, yPosition, xPosition + width, yPosition + radius, 0);
+  context.lineTo(xPosition + width, yPosition + height - radius);
+  context.arcTo(xPosition + width, yPosition + height, xPosition + width - radius, yPosition + height, radius);
+  context.lineTo(xPosition + radius, yPosition + height);
+  context.arcTo(xPosition, yPosition + height, xPosition, yPosition + height - radius, radius);
+  context.lineTo(xPosition, yPosition + radius);
+  context.arcTo(xPosition, yPosition, xPosition + radius, yPosition, 0);
+  context.closePath();
+  context.fillStyle = color;
+  context.fill();
+  context.fillStyle = "white";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+  context.font = "22px Arial";
+  context.fillText(text, xPosition + width / 2, yPosition + height / 2);
+}
+function drawRoundedRectWithRotatedTextVertically(context, width, height, text, xPosition, yPosition, color) {
+  const radius = 10;
+  context.beginPath();
+  context.moveTo(xPosition + radius, yPosition);
+  context.lineTo(xPosition + width - radius, yPosition);
+  context.arcTo(xPosition + width, yPosition, xPosition + width, yPosition + radius, radius);
+  context.lineTo(xPosition + width, yPosition + height - radius);
+  context.arcTo(xPosition + width, yPosition + height, xPosition + width - radius, yPosition + height, radius);
+  context.lineTo(xPosition + radius, yPosition + height);
+  context.arcTo(xPosition, yPosition + height, xPosition, yPosition + height - radius, 0);
+  context.lineTo(xPosition, yPosition + radius);
+  context.arcTo(xPosition, yPosition, xPosition + radius, yPosition, 0);
+  context.closePath();
+  context.fillStyle = color;
+  context.fill();
+  context.save();
+  context.translate(xPosition + width / 2, yPosition + height / 2);
+  context.rotate(Math.PI / 2);
+  context.fillStyle = "white";
+  context.textAlign = "center";
+  context.font = "22px Arial";
+  context.fillText(text, 0, 0);
+  context.restore();
+}
+var drawGrid = (context, x, y, width, height, gridColor, onlyBox = false, widthText = "", heightText = "") => {
   context.fillStyle = gridColor;
-  const thirdsX = width / 3;
+  let lastGrid = 10;
+  if (width > 1e3) {
+    lastGrid = 10;
+  } else if (width > 500) {
+    lastGrid = 5;
+  } else if (width > 200) {
+    lastGrid = 3;
+  } else {
+    lastGrid = 0;
+  }
+  const thirdsX = width / lastGrid;
   const thirdsY = height / 3;
-  context.fillRect(x, y, 1, height);
-  context.fillRect(thirdsX + x, y, 1, height);
-  context.fillRect(thirdsX * 2 + x, y, 1, height);
-  context.fillRect(thirdsX * 3 + x, y, 1, height);
-  context.fillRect(thirdsX * 4 + x, y, 1, height);
-  context.fillRect(x, y, width, 1);
-  context.fillRect(x, thirdsY + y, width, 1);
-  context.fillRect(x, thirdsY * 2 + y, width, 1);
-  context.fillRect(x, thirdsY * 3 + y, width, 1);
-  context.fillRect(x, thirdsY * 4 + y, width, 1);
+  context.fillRect(x, y, 2, height);
+  if (!onlyBox) {
+    context.fillRect(thirdsX + x, y, 1, height);
+    for (let i = 0; i < lastGrid; i++) {
+      context.fillRect(thirdsX * i + x, y, 1, height);
+    }
+  }
+  context.fillRect(thirdsX * lastGrid + x, y, 2, height);
+  if (onlyBox) {
+    context.fillRect(x, y, width, 2);
+    context.fillRect(x, thirdsY * 3 + y, width, 2);
+    drawRoundedRectWithText(context, 180, 30, parseInt(widthText) + " cm", width * 0.5, y, gridColor);
+    drawRoundedRectWithRotatedTextVertically(context, 30, 180, parseInt(heightText) + " cm", x, height * 0.55, gridColor);
+  }
 };
 var defaultEmptyImage = {
   x: 0.5,
@@ -183,6 +242,8 @@ var AvatarEditor = class extends React.Component {
       mx: void 0,
       image: defaultEmptyImage
     };
+    this.reflecting = false;
+    this.canvas2 = document.createElement("canvas");
     this.handleImageReady = (image) => {
       var _a, _b;
       const imageState = __spreadProps(__spreadValues({}, this.getInitialSize(image.width, image.height)), {
@@ -274,6 +335,9 @@ var AvatarEditor = class extends React.Component {
     } else if (!this.props.image && prevState.image !== defaultEmptyImage) {
       this.clearImage();
     }
+    if (this.props.reflectImage !== prevProps.reflectImage) {
+      this.reflectImage();
+    }
     const context = this.getContext();
     context.clearRect(0, 0, this.getCanvas().width, this.getCanvas().height);
     this.paint(context);
@@ -289,6 +353,32 @@ var AvatarEditor = class extends React.Component {
       );
     }
     return this.canvas.current;
+  }
+  reflectImage() {
+    this.reflecting = true;
+    const image = this.state.image;
+    if (!image.resource) {
+      throw new Error(
+        "No image resource available, please report this to"
+      );
+    }
+    const canvas2 = this.canvas2;
+    canvas2.width = image.resource.width;
+    canvas2.height = image.resource.height;
+    const context2 = canvas2.getContext("2d");
+    if (!context2) {
+      throw new Error(
+        "No context found, please report this to"
+      );
+    }
+    context2.translate(image.resource.width, 0);
+    context2.scale(-1, 1);
+    context2.drawImage(image.resource, 0, 0);
+    const img = new Image();
+    img.src = canvas2.toDataURL();
+    img.onload = () => {
+      this.handleImageReady(img);
+    };
   }
   getContext() {
     const context = this.getCanvas().getContext("2d");
@@ -333,6 +423,71 @@ var AvatarEditor = class extends React.Component {
       height,
       border
     };
+  }
+  getBlob() {
+    const cropRect = this.getCroppingRect();
+    const image = this.state.image;
+    if (!image.resource) {
+      throw new Error("No image resource available");
+    }
+    cropRect.x *= image.resource.width;
+    cropRect.y *= image.resource.height;
+    cropRect.width *= image.resource.width;
+    cropRect.height *= image.resource.height;
+    const canvas = document.createElement("canvas");
+    canvas.width = cropRect.width;
+    canvas.height = cropRect.height;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("Unable to get canvas context");
+    }
+    context.drawImage(
+      image.resource,
+      cropRect.x,
+      cropRect.y,
+      cropRect.width,
+      cropRect.height,
+      0,
+      0,
+      cropRect.width,
+      cropRect.height
+    );
+    const dataUrl = canvas.toDataURL();
+    return dataUrl;
+  }
+  saveCropImage(name) {
+    const cropRect = this.getCroppingRect();
+    const image = this.state.image;
+    if (!image.resource) {
+      throw new Error("No image resource available");
+    }
+    cropRect.x *= image.resource.width;
+    cropRect.y *= image.resource.height;
+    cropRect.width *= image.resource.width;
+    cropRect.height *= image.resource.height;
+    const canvas = document.createElement("canvas");
+    canvas.width = cropRect.width;
+    canvas.height = cropRect.height;
+    const context = canvas.getContext("2d");
+    if (!context) {
+      throw new Error("Unable to get canvas context");
+    }
+    context.drawImage(
+      image.resource,
+      cropRect.x,
+      cropRect.y,
+      cropRect.width,
+      cropRect.height,
+      0,
+      0,
+      cropRect.width,
+      cropRect.height
+    );
+    const dataUrl = canvas.toDataURL();
+    const link = document.createElement("a");
+    link.href = dataUrl;
+    link.download = name;
+    link.click();
   }
   getImage() {
     const cropRect = this.getCroppingRect();
@@ -551,7 +706,21 @@ var AvatarEditor = class extends React.Component {
         borderSizeY,
         width - borderSizeX * 2,
         height - borderSizeY * 2,
-        this.props.gridColor
+        this.props.gridColor,
+        false,
+        this.props.widthText,
+        this.props.heightText
+      );
+      drawGrid(
+        context,
+        borderSizeX,
+        borderSizeY,
+        width - borderSizeX * 2,
+        height - borderSizeY * 2,
+        "#666",
+        true,
+        this.props.widthText,
+        this.props.heightText
       );
     }
     context.restore();
@@ -581,7 +750,9 @@ var AvatarEditor = class extends React.Component {
       disableHiDPIScaling,
       disableCanvasRotation,
       showGrid,
-      gridColor
+      gridColor,
+      widthText,
+      heightText
     } = _a, rest = __objRest(_a, [
       "scale",
       "rotate",
@@ -606,7 +777,9 @@ var AvatarEditor = class extends React.Component {
       "disableHiDPIScaling",
       "disableCanvasRotation",
       "showGrid",
-      "gridColor"
+      "gridColor",
+      "widthText",
+      "heightText"
     ]);
     const dimensions = this.getDimensions();
     const defaultStyle = {
@@ -637,9 +810,12 @@ AvatarEditor.defaultProps = {
   color: [0, 0, 0, 0.5],
   showGrid: true,
   gridColor: "#666",
+  reflectImage: false,
   disableBoundaryChecks: false,
   disableHiDPIScaling: false,
-  disableCanvasRotation: true
+  disableCanvasRotation: true,
+  widthText: "",
+  heightText: ""
 };
 var src_default = AvatarEditor;
 export {

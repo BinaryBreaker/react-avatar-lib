@@ -24,6 +24,7 @@ interface Props {
     onImageReady?: () => void;
     onImageChange?: () => void;
     onMouseUp?: () => void;
+    reflectImage?: () => void;
     onMouseMove?: (e: TouchEvent | MouseEvent) => void;
     onPositionChange?: (position: Position) => void;
     color?: [number, number, number, number?];
@@ -56,14 +57,20 @@ declare class AvatarEditor extends React.Component<PropsWithDefaults, State> {
         color: number[];
         showGrid: boolean;
         gridColor: string;
+        reflectImage: boolean;
         disableBoundaryChecks: boolean;
         disableHiDPIScaling: boolean;
         disableCanvasRotation: boolean;
+        widthText: string;
+        heightText: string;
     };
     state: State;
     componentDidMount(): void;
     componentDidUpdate(prevProps: PropsWithDefaults, prevState: State): void;
     private getCanvas;
+    reflecting: boolean;
+    canvas2: HTMLCanvasElement;
+    reflectImage(): void;
     private getContext;
     componentWillUnmount(): void;
     isVertical(): boolean;
@@ -78,6 +85,8 @@ declare class AvatarEditor extends React.Component<PropsWithDefaults, State> {
         height: number;
         border: number;
     };
+    getBlob(): string;
+    saveCropImage(name: string): void;
     getImage(): HTMLCanvasElement;
     /**
      * Get the image scaled to original canvas size.
@@ -113,6 +122,7 @@ declare class AvatarEditor extends React.Component<PropsWithDefaults, State> {
     handleMouseMove: (e: MouseEvent | TouchEvent) => void;
     render(): React.DetailedReactHTMLElement<{
         ref: React.RefObject<HTMLCanvasElement>;
+        reflectImage: boolean;
         key?: React.Key | null | undefined;
         height?: string | number | undefined;
         width?: string | number | undefined;

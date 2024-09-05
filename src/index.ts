@@ -247,6 +247,7 @@ interface State {
   image: ImageState
 }
 
+// @ts-ignore
 type PropsWithDefaults = typeof AvatarEditor.defaultProps & Omit<Props, keyof typeof AvatarEditor.defaultProps>
 
 class AvatarEditor extends React.Component<PropsWithDefaults, State> {
@@ -439,6 +440,48 @@ class AvatarEditor extends React.Component<PropsWithDefaults, State> {
       height,
       border,
     }
+  }
+
+  getBlob(){
+    const cropRect = this.getCroppingRect();
+    const image = this.state.image;
+
+    if (!image.resource) {
+      throw new Error('No image resource available');
+    }
+
+    // get actual pixel coordinates
+    cropRect.x *= image.resource.width;
+    cropRect.y *= image.resource.height;
+    cropRect.width *= image.resource.width;
+    cropRect.height *= image.resource.height;
+
+    // create a canvas with the correct dimensions
+    const canvas = document.createElement('canvas');
+    canvas.width = cropRect.width;
+    canvas.height = cropRect.height;
+
+    // draw the image on it
+    const context = canvas.getContext('2d');
+    if (!context) {
+      throw new Error('Unable to get canvas context');
+    }
+
+    context.drawImage(
+        image.resource,
+        cropRect.x,
+        cropRect.y,
+        cropRect.width,
+        cropRect.height,
+        0,
+        0,
+        cropRect.width,
+        cropRect.height
+    );
+
+    // Convert the canvas to a data URL
+    const dataUrl = canvas.toDataURL();
+    return dataUrl;
   }
   saveCropImage(name: string) {
     // get relative coordinates (0 to 1)
